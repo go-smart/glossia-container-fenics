@@ -1,7 +1,7 @@
-FROM fenicsproject/dev:latest
+FROM fenicsproject/stable-ppa:master
 
 RUN apt-get update && \
-    apt-get -qqy install python3-pip libyaml-dev python-yaml && \
+    apt-get -qqy install python3-pip libyaml-dev python-yaml python-pip git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
