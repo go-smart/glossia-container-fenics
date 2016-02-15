@@ -7,39 +7,62 @@ import os
 import shutil
 import yaml
 
-from gosmart import regions_dict
+import gosmart
+gosmart.setup(False)
+
+from gosmart.parameters import region_dict
+
 
 @asyncio.coroutine
-def mesh_and_go(target):
+def mesh_and_go(target, mesh=None):
     working_directory = '/shared/output/run'
-    input_msh = '/shared/input/input.msh'
-    labelling_yaml = '/shared/input/mesh_labelling.yml'
-    regions_yaml = '/shared/input/regions.yml'
+    run_input = os.path.join(working_directory, 'input')
+    input_msh = os.path.join(run_input, 'input.msh')
+    labelling_yaml = os.path.join(run_input, 'mesh_labelling.yml')
+    regions_yaml = os.path.join(run_input, 'regions.yml')
 
-    # Launch
-    task = yield from asyncio.create_subprocess_exec(
-        ['go-smart-launcher', '/shared/input/settings.xml'],
-        cwd=working_directory
-    )
+    shutil.rmtree(run_input)
+    shutil.copytree('/shared/input', run_input)
 
-    # Hold off until meshing is complete
-    yield from task.wait()
+    if mesh is None:
+        # Launch
+        task = yield from asyncio.create_subprocess_exec(
+            'go-smart-launcher',
+            '/shared/input/settings.xml',
+            cwd=working_directory
+        )
 
-    # Pick out the relevant mesher output
-    msh_input = os.path.join(working_directory, "mesher", "elmer_libnuma.msh")
-    mesh_labelling_yaml = os.path.join(working_directory, "mesher", "mesh_labelling.yml")
+        # Hold off until meshing is complete
+        yield from task.wait()
+
+        # Pick out the relevant mesher output
+        msh_input = os.path.join(
+            working_directory,
+            "mesher",
+            "elmer_libnuma.msh"
+        )
+
+        mesh_labelling_yaml = os.path.join(
+            working_directory,
+            "mesher",
+            "mesh_labelling.yml"
+        )
+
+        # Check for success from GSSF mesher-cgal
+        success = (task.returncode == 0)
+    else:
+        msh_input, mesh_labelling_yaml = mesh.split(':')
+
     shutil.copyfile(msh_input, input_msh)
     shutil.copyfile(mesh_labelling_yaml, labelling_yaml)
-
-    # Check for success from GSSF mesher-cgal
-    success = (task.returncode == 0)
 
     # Update the regions based on this regions file
     with open(labelling_yaml, "r") as f:
         mesh_labelling = yaml.load(f)
 
     regions = mesh_labelling.copy()
-    regions.update(regions_dict)
+    regions.update(region_dict)
+
     for k, v in regions.items():
         if k in mesh_labelling:
             v.update(mesh_labelling[k])
@@ -49,10 +72,18 @@ def mesh_and_go(target):
         yaml.dump(regions, f, default_flow_style=False)
 
     # Launch
+    print("Running target", target)
     task = yield from asyncio.create_subprocess_exec(
-        ['/usr/bin/python2', target],
-        cwd='/shared/output/run'
+        '/usr/bin/python2',
+        target,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        cwd=working_directory
     )
+
+    yield from task.wait()
+
+    print("Target run")
 
     # Check for success from Python script
     success = (task.returncode == 0)
@@ -61,15 +92,15 @@ def mesh_and_go(target):
 
 
 @click.command()
+@click.option('--mesh', default=None,
+              help='Colon separated mesh filename and labelling filename')
 @click.argument('target')
-def run(target):
+def run(mesh, target):
     loop = asyncio.get_event_loop()
 
-    future = asyncio.Future()
+    future = asyncio.ensure_future(mesh_and_go(target, mesh))
 
-    asyncio.ensure_future(mesh_and_go(future, target))
-
-    loop.run_until_complete(target)
+    loop.run_until_complete(future)
 
     loop.close()
 

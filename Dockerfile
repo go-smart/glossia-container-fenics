@@ -1,4 +1,4 @@
-FROM numaengineering/gssf-mesher-base
+FROM gosmart/goosefoot-mesher-base
 
 RUN apt-get update && \
     apt-get -qqy install python3-pip libyaml-dev python-yaml python-pip git
@@ -41,15 +41,15 @@ RUN echo "export OPENBLAS_NUM_THREADS=1" >> $HOME/.bashrc && \
 
 RUN pip3 install hachiko
 
-COPY mesh_and_go.py /
-
-ENV GSSA_CONTAINER_MODULE_COMMIT=18fadab
+ENV GSSA_CONTAINER_MODULE_COMMIT=8dfb08d
 # Need this for FEniCS
 RUN pip2 install git+https://github.com/go-smart/gssa-container-module@$GSSA_CONTAINER_MODULE_COMMIT
 # Need this for gosling
 RUN pip3 install git+https://github.com/go-smart/gssa-container-module@$GSSA_CONTAINER_MODULE_COMMIT
 
-USER gssa
+COPY mesh_and_go.py /
+
+USER gssf
 
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
