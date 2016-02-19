@@ -39,9 +39,14 @@ RUN echo "export OPENBLAS_NUM_THREADS=1" >> $HOME/.bashrc && \
 
 ###### END UPSTREAM
 
+ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8
+ENV OPENBLAS_NUM_THREADS=1
+ENV OPENBLAS_VERBOSE=0
+
 RUN pip3 install hachiko
 
-ENV GSSA_CONTAINER_MODULE_COMMIT=8dfb08d
+ENV GSSA_CONTAINER_MODULE_COMMIT=105713
 # Need this for FEniCS
 RUN pip2 install git+https://github.com/go-smart/gssa-container-module@$GSSA_CONTAINER_MODULE_COMMIT
 # Need this for gosling
@@ -49,12 +54,10 @@ RUN pip3 install git+https://github.com/go-smart/gssa-container-module@$GSSA_CON
 
 COPY mesh_and_go.py /
 
-USER gssf
+RUN mkdir /var/run/gssf
+RUN chown -R gssf /var/run/gssf
 
-ENV LC_ALL=C.UTF-8
-ENV LANG=C.UTF-8
-ENV OPENBLAS_NUM_THREADS=1
-ENV OPENBLAS_VERBOSE=0
+USER gssf
 ENTRYPOINT ["/usr/local/bin/gosling"]
 
 CMD ["--interpreter", "python3 /mesh_and_go.py", "--archive", "start.tar.gz", "--target", "start.py"]

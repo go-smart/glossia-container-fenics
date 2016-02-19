@@ -10,19 +10,23 @@ import yaml
 import gosmart
 gosmart.setup(False)
 
-from gosmart.parameters import region_dict
-
 
 @asyncio.coroutine
 def mesh_and_go(target, mesh=None):
     working_directory = '/shared/output/run'
+    original_input = '/shared/input'
     run_input = os.path.join(working_directory, 'input')
     input_msh = os.path.join(run_input, 'input.msh')
     labelling_yaml = os.path.join(run_input, 'mesh_labelling.yml')
+    original_regions_yaml = os.path.join(original_input, 'regions.yml')
     regions_yaml = os.path.join(run_input, 'regions.yml')
 
-    shutil.rmtree(run_input)
-    shutil.copytree('/shared/input', run_input)
+    try:
+        shutil.rmtree(run_input)
+    except FileNotFoundError:
+        pass
+
+    shutil.copytree(original_input, run_input)
 
     if mesh is None:
         # Launch
@@ -61,6 +65,8 @@ def mesh_and_go(target, mesh=None):
         mesh_labelling = yaml.load(f)
 
     regions = mesh_labelling.copy()
+    with open(original_regions_yaml, "r") as f:
+        region_dict = yaml.load(f)
     regions.update(region_dict)
 
     for k, v in regions.items():
