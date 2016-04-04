@@ -117,4 +117,6 @@ def run(mesh, target):
 
 
 if __name__ == '__main__':
-    sys.exit(run())
+    exit_code = run()
+    print("Exiting with code %d" % int(exit_code))
+    sys.exit(exit_code)
