@@ -46,7 +46,7 @@ ENV OPENBLAS_VERBOSE=0
 
 RUN pip3 install hachiko
 
-ENV GSSA_CONTAINER_MODULE_COMMIT=105713
+ENV GSSA_CONTAINER_MODULE_COMMIT=a258bda
 # Need this for FEniCS
 RUN pip2 install git+https://github.com/go-smart/gssa-container-module@$GSSA_CONTAINER_MODULE_COMMIT
 # Need this for gosling
@@ -54,8 +54,9 @@ RUN pip3 install git+https://github.com/go-smart/gssa-container-module@$GSSA_CON
 
 COPY mesh_and_go.py /
 
-RUN mkdir /var/run/gssf
-RUN chown -R gssf /var/run/gssf
+RUN mkdir -p /var/run/gssf /shared
+RUN chown -R gssf:gssf /var/run/gssf
+RUN chown -R gssf:gssf /shared
 
 USER gssf
 ENTRYPOINT ["/usr/local/bin/gosling"]

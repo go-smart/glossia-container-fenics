@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+"""Tool to automatically perform volumetric meshing prior to
+executing a Glossia Python Container Module simulation. Updates
+region YAML files to note mesh labels for specific regions."""
 
 import sys
 import asyncio
@@ -54,6 +57,9 @@ def mesh_and_go(target, mesh=None):
 
         # Check for success from GSSF mesher-cgal
         success = (task.returncode == 0)
+
+        if not success:
+            return task.returncode
     else:
         msh_input, mesh_labelling_yaml = mesh.split(':')
 
@@ -91,10 +97,7 @@ def mesh_and_go(target, mesh=None):
 
     print("Target run")
 
-    # Check for success from Python script
-    success = (task.returncode == 0)
-
-    return success
+    return task.returncode
 
 
 @click.command()
