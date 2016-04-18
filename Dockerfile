@@ -52,7 +52,11 @@ RUN pip2 install git+https://github.com/go-smart/gssa-container-module@$GSSA_CON
 # Need this for gosling
 RUN pip3 install git+https://github.com/go-smart/gssa-container-module@$GSSA_CONTAINER_MODULE_COMMIT
 
+ENV GLOSSIA_COMPARATOR_COMMIT=73fb012
+RUN pip3 install git+https://github.com/go-smart/glossia-comparator@$GSSA_CONTAINER_MODULE_COMMIT
+
 COPY mesh_and_go.py /
+COPY mesher_gssf.py /
 
 RUN mkdir -p /var/run/gssf /shared
 RUN chown -R gssf:gssf /var/run/gssf

@@ -10,6 +10,8 @@ import os
 import shutil
 import yaml
 import traceback
+import lxml.etree
+import mesher_gssf
 
 import gosmart
 gosmart.setup(False)
@@ -104,9 +106,22 @@ def mesh_and_go(target, mesh=None):
 @click.command()
 @click.option('--mesh', default=None,
               help='Colon separated mesh filename and labelling filename')
+@click.option('--gssa-xml', default=None)
 @click.argument('target')
-def run(mesh, target):
+def run(mesh, gssa_xml, target):
     print("Starting Mesh & Go...")
+
+    if gssa_xml:
+        if not os.path.exists(gssa_xml):
+            raise RuntimeError("Passed GSSA-XML file does not exist")
+
+        with open(gssa_xml, 'r') as f:
+            tree = lxml.etree.parse(f)
+
+        gssf_xml_root = mesher_gssf.to_mesh_xml(tree.getroot())
+
+        with open('input/settings.xml', 'w') as f:
+            f.write(lxml.etree.tostring(gssf_xml_root, pretty_print=True))
 
     loop = asyncio.get_event_loop()
 
