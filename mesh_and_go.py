@@ -9,6 +9,7 @@ import click
 import os
 import shutil
 import yaml
+import traceback
 
 import gosmart
 gosmart.setup(False)
@@ -105,18 +106,29 @@ def mesh_and_go(target, mesh=None):
               help='Colon separated mesh filename and labelling filename')
 @click.argument('target')
 def run(mesh, target):
+    print("Starting Mesh & Go...")
+
     loop = asyncio.get_event_loop()
 
     future = asyncio.ensure_future(mesh_and_go(target, mesh))
 
-    loop.run_until_complete(future)
+    try:
+        loop.run_until_complete(future)
+    except:
+        traceback.print_exc()
+        result = 1
+    else:
+        result = future.result()
+    finally:
+        loop.close()
 
-    loop.close()
+    print("Exiting Mesh & Go with code %d" % int(result))
 
-    return future.result()
+    if result != 0:
+        raise SystemExit(result)
+
+    return 0
 
 
 if __name__ == '__main__':
-    exit_code = run()
-    print("Exiting with code %d" % int(exit_code))
-    sys.exit(exit_code)
+    sys.exit(run())
