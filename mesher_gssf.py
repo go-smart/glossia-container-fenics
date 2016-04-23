@@ -1,22 +1,21 @@
-import asyncio
 import os
 import math
 import json
-import lxml.etree 
-import shutil
+import lxml.etree
 import logging
-import yaml
 from glossia.comparator.parse import gssa_xml_to_definition
 
 logger = logging.getLogger(__name__)
 
 _nonmeshing_groups = set(['segmented-lesions'])
 
-def to_mesh_xml(self, gssa_root):
-    definition = gssa_xml_to_definition(root)
-    needles = definition.get_needles()
+
+def to_mesh_xml(gssa_root):
+    definition = gssa_xml_to_definition(gssa_root)
+    numerical_model = definition.numerical_model
+    needles = numerical_model.get_needles()
     regions = definition.get_regions()
-    parameters = definition.get_parameters()
+    parameters = definition.parameters
 
     root = lxml.etree.Element('gssf')
     root.set('name', 'elmer_libnuma')
@@ -34,10 +33,10 @@ def to_mesh_xml(self, gssa_root):
     # coordinates, calculate the centroid of all the tips
     if centre_location is None or centre_location == "first-needle":
         if needles:
-            centre_location = definition.get_needle_parameter_value(0, "NEEDLE_TIP_LOCATION")
+            centre_location = definition.get_needle_parameter_value('1', "NEEDLE_TIP_LOCATION")
     elif centre_location == "centroid-of-tips":
         if needles:
-            needle_tips = [definition.get_needle_parameter_value(i, "NEEDLE_TIP_LOCATION") for i in range(len(needles))]
+            needle_tips = [definition.get_needle_parameter_value(str(i + 1), "NEEDLE_TIP_LOCATION") for i in range(len(needles))]
             needle_tips = zip(*needle_tips)
             centre_location = [sum(tips) / len(needles) for tips in needle_tips]
 
@@ -46,8 +45,8 @@ def to_mesh_xml(self, gssa_root):
         needle_axis_node = lxml.etree.Element('needleaxis')
 
         # Get the entry and tip of the first needle
-        tip_location = definition.get_needle_parameter_value(0, "NEEDLE_TIP_LOCATION")
-        entry_location = definition.get_needle_parameter_value(0, "NEEDLE_ENTRY_LOCATION")
+        tip_location = definition.get_needle_parameter_value('1', "NEEDLE_TIP_LOCATION")
+        entry_location = definition.get_needle_parameter_value('1', "NEEDLE_ENTRY_LOCATION")
         norm = 0
         vec = []
         for c, vt, ve in zip(('x', 'y', 'z'), tip_location, entry_location):
@@ -81,21 +80,19 @@ def to_mesh_xml(self, gssa_root):
     # Each region goes into the regions section, fairly intuitively
     region_node = lxml.etree.SubElement(root, "regions")
     for name, region in regions.items():
-        regionNode = lxml.etree.SubElement(region_node, region["format"])
+        regionNode = lxml.etree.SubElement(region_node, region.format)
         regionNode.set("name", name)
-        regionNode.set("input", os.path.join("input/", region["input"]))
-        regionNode.set("groups", "; ".join(region["groups"]))
+        regionNode.set("input", os.path.join("input/", region.input))
+        regionNode.set("groups", "; ".join(region.groups))
 
     # Add the parameters wholesale
     parameters = lxml.etree.SubElement(root, "constants")
-    for key, parameterPair in parameters.items():
-        parameter, typ = parameterPair
+    for key, parameter in parameters.items():
         parameterNode = lxml.etree.SubElement(parameters, "parameter")
         parameterNode.set("name", key)
-        p = convert_parameter(parameter, typ)
-        parameterNode.set("value", json.dumps(p))
-        if typ is not None:
-            parameterNode.set("type", typ)
+        parameterNode.set("value", json.dumps(parameter.value))
+        if parameter.typ is not None:
+            parameterNode.set("type", parameter.typ)
 
     name_needle_regions = False
 
@@ -181,7 +178,7 @@ def to_mesh_xml(self, gssa_root):
     # Each region may need to be added to the mesher section
     for idx, region in regions.items():
         # If we have an organ, it should appear as a zone or organ
-        if region.meaning == 'organ':
+        if region.name == 'organ':
             if definition.get_parameter_value('SETTING_ORGAN_AS_SUBDOMAIN'):
                 zone = lxml.etree.SubElement(mesher, 'zone')
                 zone.set('region', idx)
@@ -232,11 +229,11 @@ def to_mesh_xml(self, gssa_root):
 
         # If this needle is a boundary type (the only type for the
         # moment)...
-        if needle['class'] in ('solid-boundary', 'boundary'):
+        if needle.cls in ('solid-boundary', 'boundary'):
             # The 'file' attribute in GSSA should be a colon-separated pair
             # indicating what type of definition it is and the specifics
             # required
-            location = needle['file'].split(':', 1)
+            location = needle.file.split(':', 1)
 
             needle_mesh = None
             # If we aren't using a library type, then we need to get the
@@ -271,11 +268,10 @@ def to_mesh_xml(self, gssa_root):
 
                 # Add any needle-specific parameters
                 parameter_node = lxml.etree.SubElement(globalNeedleNode, "parameters")
-                for key, parameterPair in needle["parameters"].items():
-                    parameter, typ = parameterPair
+                for key, parameter in needle.parameters.items():
                     parameterNode = lxml.etree.SubElement(parameter_node, "constant")
                     parameterNode.set("name", key)
-                    parameterNode.set("value", str(convert_parameter(parameter, typ)))
+                    parameterNode.set("value", str(parameter.value))
 
             # Set active region if needs be
             needle_active_length = definition.get_needle_parameter_value(ix, "NEEDLE_ACTIVE_LENGTH")

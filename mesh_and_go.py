@@ -18,7 +18,7 @@ gosmart.setup(False)
 
 
 @asyncio.coroutine
-def mesh_and_go(target, mesh=None):
+def mesh_and_go(target, mesh=None, gssf_settings_xml='/shared/input/settings.xml'):
     working_directory = '/shared/output/run'
     original_input = '/shared/input'
     run_input = os.path.join(working_directory, 'input')
@@ -38,7 +38,7 @@ def mesh_and_go(target, mesh=None):
         # Launch
         task = yield from asyncio.create_subprocess_exec(
             'go-smart-launcher',
-            '/shared/input/settings.xml',
+            gssf_settings_xml,
             cwd=working_directory
         )
 
@@ -111,6 +111,8 @@ def mesh_and_go(target, mesh=None):
 def run(mesh, gssa_xml, target):
     print("Starting Mesh & Go...")
 
+    gssf_settings_xml = '/shared/input/settings.xml'
+
     if gssa_xml:
         if not os.path.exists(gssa_xml):
             raise RuntimeError("Passed GSSA-XML file does not exist")
@@ -120,12 +122,13 @@ def run(mesh, gssa_xml, target):
 
         gssf_xml_root = mesher_gssf.to_mesh_xml(tree.getroot())
 
-        with open('input/settings.xml', 'w') as f:
-            f.write(lxml.etree.tostring(gssf_xml_root, pretty_print=True))
+        gssf_settings_xml = '/shared/output/settings.xml'
+        with open(gssf_settings_xml, 'w') as f:
+            f.write(lxml.etree.tostring(gssf_xml_root, pretty_print=True).decode('utf-8'))
 
     loop = asyncio.get_event_loop()
 
-    future = asyncio.ensure_future(mesh_and_go(target, mesh))
+    future = asyncio.ensure_future(mesh_and_go(target, mesh, gssf_settings_xml))
 
     try:
         loop.run_until_complete(future)
